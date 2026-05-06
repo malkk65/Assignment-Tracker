@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_colors.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -76,7 +77,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 leading: const Icon(Icons.lock_reset, color: AppColors.primary),
                 title: const Text('Change Password'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
+                onTap: () async {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null && user.email != null) {
+                    try {
+                      await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Password reset email sent. Check your inbox.')),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Failed to send reset email.')),
+                        );
+                      }
+                    }
+                  }
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.logout, color: AppColors.error),
@@ -84,12 +103,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Logout',
                   style: TextStyle(color: AppColors.error),
                 ),
-                onTap: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/login',
-                    (route) => false,
-                  );
+                onTap: () async {
+                  await FirebaseAuth.instance.signOut();
+                  if (mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
+                  }
                 },
               ),
             ]),

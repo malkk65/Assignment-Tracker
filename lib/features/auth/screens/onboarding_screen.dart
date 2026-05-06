@@ -68,7 +68,7 @@ class OnboardingScreen extends StatelessWidget {
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/register');
+                    Navigator.pushNamed(context, '/register');
                   },
                   child: const Text('Get Started'),
                 ),
@@ -87,7 +87,7 @@ class OnboardingScreen extends StatelessWidget {
                   ),
                   GestureDetector(
                     onTap: () {
-                      Navigator.pushReplacementNamed(context, '/login');
+                      Navigator.pushNamed(context, '/login');
                     },
                     child: const Text(
                       'Log in',

@@ -1,11 +1,124 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_colors.dart';
 
-class ProfileScreen extends StatelessWidget {
+// Temporary cache since Firestore is not yet implemented
+class UserDataCache {
+  static String university = 'Borg Alarab Technological University';
+  static String faculty = 'Faculty of Information Technology';
+  static String role = 'Undergraduate Student';
+}
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  
+  String _getFallbackName(String? email) {
+    if (email == null || email.isEmpty) return 'Student';
+    return email.split('@')[0];
+  }
+
+  void _showEditProfileDialog() {
+    final user = FirebaseAuth.instance.currentUser;
+    final nameController = TextEditingController(text: user?.displayName ?? _getFallbackName(user?.email));
+    final uniController = TextEditingController(text: UserDataCache.university);
+    final facController = TextEditingController(text: UserDataCache.faculty);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name', hintText: 'Enter your name'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: uniController,
+                decoration: const InputDecoration(labelText: 'University'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: facController,
+                decoration: const InputDecoration(labelText: 'Faculty'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (user != null) {
+                await user.updateDisplayName(nameController.text.trim());
+                await user.reload(); 
+              }
+              UserDataCache.university = uniController.text.trim();
+              UserDataCache.faculty = facController.text.trim();
+              
+              if (mounted) {
+                setState(() {});
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile updated successfully!')),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _resetPassword() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      try {
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Password reset email sent. Check your inbox.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to send reset email.')),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No email found to reset password.')),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    // Fallback to email part if displayName is still null
+    final userName = (user?.displayName != null && user!.displayName!.isNotEmpty) 
+        ? user.displayName! 
+        : _getFallbackName(user?.email);
+    final userEmail = user?.email ?? 'student@university.edu';
+    final initial = userName.isNotEmpty ? userName[0].toUpperCase() : 'S';
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -20,12 +133,12 @@ class ProfileScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 50,
                     backgroundColor: AppColors.primaryLight,
                     child: Text(
-                      'J',
-                      style: TextStyle(
+                      initial,
+                      style: const TextStyle(
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -33,20 +146,20 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 15),
-                  const Text(
-                    'Julian Anderson',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  Text(
+                    userName,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  const Text(
-                    'julian.a@university.edu',
-                    style: TextStyle(color: AppColors.textSecondary),
+                  Text(
+                    userEmail,
+                    style: const TextStyle(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: _showEditProfileDialog,
                       icon: const Icon(Icons.edit, size: 18),
                       label: const Text('Edit Profile'),
                     ),
@@ -96,13 +209,23 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                   const Divider(height: 30),
-                  _buildInfoRow('UNIVERSITY', 'University of Arts & Sciences'),
-                  _buildInfoRow('FACULTY', 'Department of Computational Theory'),
-                  _buildInfoRow('ACADEMIC ROLE', 'Undergraduate Senior'),
+                  _buildInfoRow('UNIVERSITY', UserDataCache.university),
+                  _buildInfoRow('FACULTY', UserDataCache.faculty),
+                  _buildInfoRow('ACADEMIC ROLE', UserDataCache.role),
                 ],
               ),
             ),
             const SizedBox(height: 20),
+            
+            // Password Reset button directly in profile
+            _buildActionTile(
+              title: 'Change Password',
+              subtitle: 'Send a reset link to your email',
+              icon: Icons.lock_reset,
+              onTap: _resetPassword,
+            ),
+            const SizedBox(height: 15),
+
             // Settings button
             _buildActionTile(
               title: 'Account Settings',
@@ -111,18 +234,22 @@ class ProfileScreen extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, '/settings'),
             ),
             const SizedBox(height: 15),
+            
             // Logout button
             _buildActionTile(
               title: 'Logout',
               subtitle: 'Safely exit your current session',
               icon: Icons.logout,
               color: AppColors.error,
-              onTap: () {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/login',
-                  (route) => false,
-                );
+              onTap: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/login',
+                    (route) => false,
+                  );
+                }
               },
             ),
           ],

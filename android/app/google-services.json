@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "701052991536",
+    "project_id": "assignment-tracker-25fc1",
+    "storage_bucket": "assignment-tracker-25fc1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:701052991536:android:09e4460b13038ce16f15f5",
+        "android_client_info": {
+          "package_name": "com.assignmenttracker.assignment_tracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "701052991536-e3hgmbo6ihgtkp33ba4fabnaeg7fnnto.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.assignmenttracker.assignment_tracker",
+            "certificate_hash": "96b4c21d21d3cd53ddb37e79bea0dc1e969a267f"
+          }
+        },
+        {
+          "client_id": "701052991536-hqig58oovoi2jlankbt49fr9cts2hn48.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMosRBC_fLrBVawvqc2CgToIiJ178b9Zk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "701052991536-hqig58oovoi2jlankbt49fr9cts2hn48.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "701052991536-lr99rlbf914alge5q7ht0kai9et8s1vr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.assignmenttracker.assignmentTracker"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
