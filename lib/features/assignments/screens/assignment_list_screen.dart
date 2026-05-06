@@ -3,6 +3,8 @@ import '../../../core/theme/app_colors.dart';
 import '../models/assignment.dart';
 import '../widgets/assignment_card.dart';
 import 'assignment_detail_screen.dart';
+import '../../../core/cache/user_cache.dart';
+import '../../admin/screens/admin_add_assignment_screen.dart';
 
 class AssignmentListScreen extends StatefulWidget {
   const AssignmentListScreen({super.key});
@@ -37,8 +39,25 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
   Widget build(BuildContext context) {
     final filtered = _filteredAssignments;
 
-    return Column(
-      children: [
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: UserCache.isAdmin ? FloatingActionButton(
+        onPressed: () async {
+          final newAssignment = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminAddAssignmentScreen()),
+          );
+          if (newAssignment != null && mounted) {
+            setState(() {
+              _assignments.add(newAssignment as Assignment);
+            });
+          }
+        },
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ) : null,
+      body: Column(
+        children: [
         // Search bar
         Padding(
           padding: const EdgeInsets.all(20.0),
@@ -106,6 +125,7 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
                 ),
         ),
       ],
+    ),
     );
   }
 

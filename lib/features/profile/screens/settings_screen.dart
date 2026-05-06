@@ -82,13 +82,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (user != null && user.email != null) {
                     try {
                       await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Password reset email sent. Check your inbox.')),
                         );
                       }
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Failed to send reset email.')),
                         );
@@ -105,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 onTap: () async {
                   await FirebaseAuth.instance.signOut();
-                  if (mounted) {
+                  if (context.mounted) {
                     Navigator.pushNamedAndRemoveUntil(
                       context,
                       '/login',

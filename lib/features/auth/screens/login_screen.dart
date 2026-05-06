@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/custom_card.dart';
+import '../../../core/cache/user_cache.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _staySignedIn = false;
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isAdminLogin = false;
 
   @override
   void dispose() {
@@ -46,6 +48,9 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
+      
+      UserCache.role = _isAdminLogin ? 'Admin' : 'Student';
+
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }
@@ -171,6 +176,28 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Admin Toggle
+                    Row(
+                      children: [
+                        Switch(
+                          value: _isAdminLogin,
+                          onChanged: (val) {
+                            setState(() => _isAdminLogin = val);
+                          },
+                          activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
+                          activeThumbColor: AppColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Login as Admin',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     // Stay signed in + Forgot password

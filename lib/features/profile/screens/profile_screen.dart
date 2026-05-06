@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_colors.dart';
 
-// Temporary cache since Firestore is not yet implemented
-class UserDataCache {
-  static String university = 'Borg Alarab Technological University';
-  static String faculty = 'Faculty of Information Technology';
-  static String role = 'Undergraduate Student';
-}
+import '../../../core/cache/user_cache.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -26,12 +21,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showEditProfileDialog() {
     final user = FirebaseAuth.instance.currentUser;
     final nameController = TextEditingController(text: user?.displayName ?? _getFallbackName(user?.email));
-    final uniController = TextEditingController(text: UserDataCache.university);
-    final facController = TextEditingController(text: UserDataCache.faculty);
+    final uniController = TextEditingController(text: UserCache.university);
+    final facController = TextEditingController(text: UserCache.faculty);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Profile'),
         content: SingleChildScrollView(
           child: Column(
@@ -56,7 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -65,12 +60,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 await user.updateDisplayName(nameController.text.trim());
                 await user.reload(); 
               }
-              UserDataCache.university = uniController.text.trim();
-              UserDataCache.faculty = facController.text.trim();
+              UserCache.university = uniController.text.trim();
+              UserCache.faculty = facController.text.trim();
               
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
               if (mounted) {
                 setState(() {});
-                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Profile updated successfully!')),
                 );
@@ -88,20 +85,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user != null && user.email != null) {
       try {
         await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Password reset email sent. Check your inbox.')),
           );
         }
       } catch (e) {
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to send reset email.')),
           );
         }
       }
     } else {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No email found to reset password.')),
         );
@@ -209,9 +206,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const Divider(height: 30),
-                  _buildInfoRow('UNIVERSITY', UserDataCache.university),
-                  _buildInfoRow('FACULTY', UserDataCache.faculty),
-                  _buildInfoRow('ACADEMIC ROLE', UserDataCache.role),
+                  _buildInfoRow('UNIVERSITY', UserCache.university),
+                  _buildInfoRow('FACULTY', UserCache.faculty),
+                  _buildInfoRow('ACADEMIC ROLE', UserCache.role),
                 ],
               ),
             ),

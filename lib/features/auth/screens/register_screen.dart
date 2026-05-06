@@ -5,6 +5,7 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_dropdown.dart';
+import '../../../core/cache/user_cache.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -21,9 +22,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _selectedUniversity;
   String? _selectedFaculty;
-  String? _selectedSpec;
   bool _isAgreed = false;
   bool _isLoading = false;
+  String _accountType = 'Student';
 
   @override
   void dispose() {
@@ -56,18 +57,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    final wantsAdmin = _accountType == 'Admin';
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
-      // Update display name
-      await userCredential.user?.updateDisplayName(name);
+
+      final user = userCredential.user;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registration incomplete. Please try again.')),
+          );
+        }
+        return;
+      }
+
+      await user.updateDisplayName(name);
+
+      UserCache.role = wantsAdmin ? 'Admin' : 'Student';
+      final uni = _selectedUniversity?.trim();
+      final fac = _selectedFaculty?.trim();
+      if (uni != null && uni.isNotEmpty) {
+        UserCache.university = uni;
+      }
+      if (fac != null && fac.isNotEmpty) {
+        UserCache.faculty = fac;
+      }
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
@@ -76,6 +98,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.message ?? 'Registration failed')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not complete registration: $e')),
         );
       }
     } finally {
@@ -205,12 +233,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       setState(() => _selectedFaculty = val);
                     },
                   ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Account type',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   CustomDropdown(
-                    label: 'SPECIALIZATION',
-                    items: const ['Information Technology'],
-                    value: _selectedSpec,
+                    label: 'ROLE',
+                    items: const ['Student', 'Admin'],
+                    value: _accountType,
                     onChanged: (val) {
-                      setState(() => _selectedSpec = val);
+                      setState(() => _accountType = val ?? 'Student');
                     },
                   ),
                   const SizedBox(height: 10),
