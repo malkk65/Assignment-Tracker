@@ -5,6 +5,7 @@ import '../widgets/assignment_card.dart';
 import 'assignment_detail_screen.dart';
 import '../../admin/screens/admin_add_assignment_screen.dart';
 import '../../../core/cache/user_cache.dart';
+import '../../../core/services/assignment_service.dart';
 
 class AssignmentListScreen extends StatefulWidget {
   const AssignmentListScreen({super.key});
@@ -17,27 +18,8 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
   String _selectedFilter = 'All';
   String _searchQuery = '';
 
-  final List<Assignment> _assignments = Assignment.sampleData;
-
-  List<Assignment> get _filteredAssignments {
-    return _assignments.where((item) {
-      final matchesSearch =
-          item.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              item.courseCode.toLowerCase().contains(_searchQuery.toLowerCase());
-
-      final matchesFilter = _selectedFilter == 'All' ||
-          (_selectedFilter == 'Overdue' && item.isOverdue) ||
-          (_selectedFilter == 'Completed' && item.isCompleted) ||
-          (_selectedFilter == 'In Progress' && item.status == 'in_progress') ||
-          (_selectedFilter == 'Pending' && item.status == 'pending' && !item.isOverdue);
-
-      return matchesSearch && matchesFilter;
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredAssignments;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -94,8 +76,34 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
         const SizedBox(height: 20),
         // Assignment list
         Expanded(
-          child: filtered.isEmpty
-              ? const Center(
+          child: StreamBuilder<List<Assignment>>(
+            stream: AssignmentService.getAssignmentsStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.error)));
+              }
+
+              final allAssignments = snapshot.data ?? [];
+              
+              final filtered = allAssignments.where((item) {
+                final matchesSearch =
+                    item.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                    item.courseCode.toLowerCase().contains(_searchQuery.toLowerCase());
+
+                final matchesFilter = _selectedFilter == 'All' ||
+                    (_selectedFilter == 'Overdue' && item.isOverdue) ||
+                    (_selectedFilter == 'Completed' && item.isCompleted) ||
+                    (_selectedFilter == 'In Progress' && item.status == 'in_progress') ||
+                    (_selectedFilter == 'Pending' && item.status == 'pending' && !item.isOverdue);
+
+                return matchesSearch && matchesFilter;
+              }).toList();
+
+              if (filtered.isEmpty) {
+                return const Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -107,25 +115,29 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
                       ),
                     ],
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final assignment = filtered[index];
-                    return AssignmentCard(
-                      assignment: assignment,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AssignmentDetailScreen(
-                            assignment: assignment,
-                          ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final assignment = filtered[index];
+                  return AssignmentCard(
+                    assignment: assignment,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AssignmentDetailScreen(
+                          assignment: assignment,
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ],
     ),

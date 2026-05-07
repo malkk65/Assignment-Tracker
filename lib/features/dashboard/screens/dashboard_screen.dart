@@ -3,26 +3,37 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/cache/user_cache.dart';
 import '../../assignments/models/assignment.dart';
 import '../../assignments/screens/assignment_detail_screen.dart';
+import '../../../core/services/assignment_service.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final assignments = Assignment.sampleData;
-    final total = assignments.length;
-    final completed = assignments.where((a) => a.isCompleted).length;
-    final inProgress = assignments.where((a) => a.status == 'in_progress').length;
-    final overdue = assignments.where((a) => a.isOverdue).length;
-    final semesterGoal = total > 0 ? (completed / total * 100).round() : 0;
+    return StreamBuilder<List<Assignment>>(
+      stream: AssignmentService.getAssignmentsStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
 
-    final upcoming = assignments
-        .where((a) => !a.isCompleted && !a.isOverdue)
-        .toList()
-      ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+        final assignments = snapshot.data ?? [];
+        final total = assignments.length;
+        final completed = assignments.where((a) => a.isCompleted).length;
+        final inProgress = assignments.where((a) => a.status == 'in_progress').length;
+        final overdue = assignments.where((a) => a.isOverdue).length;
+        final semesterGoal = total > 0 ? (completed / total * 100).round() : 0;
 
-    return SafeArea(
-      child: SingleChildScrollView(
+        final upcoming = assignments
+            .where((a) => !a.isCompleted && !a.isOverdue)
+            .toList()
+          ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+
+        return SafeArea(
+          child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,51 +222,7 @@ class DashboardScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _AdminStatPill extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-
-  const _AdminStatPill({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
+      },
     );
   }
 }

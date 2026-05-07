@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Assignment {
   final String id;
   final String title;
@@ -48,30 +50,37 @@ class Assignment {
     return 'Due in $diff days';
   }
 
-  factory Assignment.fromJson(Map<String, dynamic> json) {
+  factory Assignment.fromFirestore(Map<String, dynamic> data, String docId) {
+    DateTime parsedDate;
+    if (data['dueDate'] is Timestamp) {
+      parsedDate = (data['dueDate'] as Timestamp).toDate();
+    } else {
+      parsedDate = DateTime.parse(data['dueDate'].toString());
+    }
+
     return Assignment(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      courseCode: json['courseCode'] ?? '',
-      courseName: json['courseName'] ?? '',
-      dueDate: DateTime.parse(json['dueDate']),
-      status: json['status'] ?? 'pending',
-      priority: json['priority'] ?? 'medium',
-      progress: json['progress'] ?? 0,
+      id: docId,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      courseCode: data['courseCode'] ?? '',
+      courseName: data['courseName'] ?? '',
+      dueDate: parsedDate,
+      status: data['status'] ?? 'pending',
+      priority: data['priority'] ?? 'medium',
+      progress: data['progress'] ?? 0,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
+  Map<String, dynamic> toFirestore() => {
         'title': title,
         'description': description,
         'courseCode': courseCode,
         'courseName': courseName,
-        'dueDate': dueDate.toIso8601String(),
+        'dueDate': Timestamp.fromDate(dueDate),
         'status': status,
         'priority': priority,
         'progress': progress,
+        'createdAt': FieldValue.serverTimestamp(),
       };
 
   /// Sample data for development
