@@ -3,8 +3,8 @@ import '../../../core/theme/app_colors.dart';
 import '../models/assignment.dart';
 import '../widgets/assignment_card.dart';
 import 'assignment_detail_screen.dart';
-import '../../../core/cache/user_cache.dart';
 import '../../admin/screens/admin_add_assignment_screen.dart';
+import '../../../core/cache/user_cache.dart';
 
 class AssignmentListScreen extends StatefulWidget {
   const AssignmentListScreen({super.key});
@@ -41,21 +41,24 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: UserCache.isAdmin ? FloatingActionButton(
-        onPressed: () async {
-          final newAssignment = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminAddAssignmentScreen()),
-          );
-          if (newAssignment != null && mounted) {
-            setState(() {
-              _assignments.add(newAssignment as Assignment);
-            });
-          }
-        },
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: Colors.white),
-      ) : null,
+      floatingActionButton: UserCache.isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminAddAssignmentScreen(),
+                  ),
+                );
+              },
+              backgroundColor: AppColors.primary,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Add Task',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            )
+          : null,
       body: Column(
         children: [
         // Search bar

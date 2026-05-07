@@ -5,6 +5,8 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_dropdown.dart';
+import '../../../core/models/user_role.dart';
+import '../../../core/services/user_service.dart';
 import '../../../core/cache/user_cache.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -20,11 +22,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String? _selectedUniversity;
   String? _selectedFaculty;
+  String? _selectedDepartment;
   bool _isAgreed = false;
   bool _isLoading = false;
   String _accountType = 'Student';
+
+  // Department lists per faculty
+  static const Map<String, List<String>> _departmentsByFaculty = {
+    'Faculty of Industrial and Energy Technology': [
+      'Information Technology (IT)',
+      'Textile Engineering',
+      'Railway Engineering',
+      'Tractors & Agricultural Equipment',
+      'Food Manufacturing',
+    ],
+    'Faculty of Health Science Technology': [
+      'Pharmaceutical Industries',
+      'Information Technology (IT)',
+      'Dental Prosthetics',
+    ],
+  };
+
+  List<String> get _availableDepartments {
+    if (_selectedFaculty == null) return [];
+    return _departmentsByFaculty[_selectedFaculty] ?? [];
+  }
 
   @override
   void dispose() {
@@ -33,6 +56,163 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  /// Shows a dialog to verify the admin secret code.
+  /// Returns true if the code is valid, false otherwise.
+  Future<bool> _verifyAdminCode() async {
+    final codeController = TextEditingController();
+    String? errorText;
+
+    bool? result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Icon header
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.admin_panel_settings,
+                          color: AppColors.primary,
+                          size: 36,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Admin Verification',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Enter the admin secret code to register as an administrator.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Code input
+                      TextField(
+                        controller: codeController,
+                        obscureText: true,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          letterSpacing: 4,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '• • • • • • • •',
+                          hintStyle: TextStyle(
+                            color: AppColors.textHint.withValues(alpha: 0.5),
+                            letterSpacing: 6,
+                          ),
+                          errorText: errorText,
+                          filled: true,
+                          fillColor: AppColors.inputFill,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(dialogCtx).pop(false),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                side: const BorderSide(color: AppColors.border),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                final code = codeController.text;
+                                if (UserService.verifyAdminCode(code)) {
+                                  Navigator.of(dialogCtx).pop(true);
+                                } else {
+                                  setState(() {
+                                    errorText = 'Invalid code. Try again.';
+                                  });
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Verify',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    codeController.dispose();
+    return result ?? false;
   }
 
   Future<void> _handleRegister() async {
@@ -57,13 +237,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final wantsAdmin = _accountType == 'Admin';
+    // If user wants admin, verify the admin code first
+    UserRole selectedRole = UserRole.student;
+    if (_accountType == 'Admin') {
+      final isVerified = await _verifyAdminCode();
+      if (!isVerified) {
+        // User cancelled or entered wrong code — fall back to student
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Admin verification failed. Registering as Student.')),
+          );
+        }
+        setState(() => _accountType = 'Student');
+        return;
+      }
+      selectedRole = UserRole.admin;
+    }
 
     setState(() {
       _isLoading = true;
     });
 
     try {
+      print('>>> Starting Auth Creation...');
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -79,18 +275,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
+      print('>>> Auth Success! UID: ${user.uid}');
+      
+      print('>>> Updating display name...');
       await user.updateDisplayName(name);
+      print('>>> Display name updated.');
 
-      UserCache.role = wantsAdmin ? 'Admin' : 'Student';
-      final uni = _selectedUniversity?.trim();
       final fac = _selectedFaculty?.trim();
-      if (uni != null && uni.isNotEmpty) {
-        UserCache.university = uni;
-      }
+
+      print('>>> Saving to Firestore...');
+      // Save user data to Firestore
+      await UserService.createUserDocument(
+        uid: user.uid,
+        name: name,
+        email: email,
+        role: selectedRole,
+        faculty: fac,
+      );
+      print('>>> Firestore save complete.');
+
+      // Update local cache
+      UserCache.role = selectedRole;
       if (fac != null && fac.isNotEmpty) {
         UserCache.faculty = fac;
       }
 
+      print('>>> Navigating to home...');
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }
@@ -214,28 +424,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 15),
-                  CustomDropdown(
-                    label: 'UNIVERSITY',
-                    items: const ['Borg Alarab Technological University'],
-                    value: _selectedUniversity,
-                    onChanged: (val) {
-                      setState(() => _selectedUniversity = val);
-                    },
-                  ),
+                  // Faculty dropdown
                   CustomDropdown(
                     label: 'FACULTY',
-                    items: const [
-                      'Faculty of Industrial and Energy Technology',
-                      'Faculty of Health Science Technology',
-                    ],
+                    items: _departmentsByFaculty.keys.toList(),
                     value: _selectedFaculty,
                     onChanged: (val) {
-                      setState(() => _selectedFaculty = val);
+                      setState(() {
+                        _selectedFaculty = val;
+                        _selectedDepartment = null; // Reset department on faculty change
+                      });
                     },
                   ),
+                  // Department dropdown (appears after faculty is selected)
+                  if (_selectedFaculty != null)
+                    CustomDropdown(
+                      label: 'DEPARTMENT',
+                      items: _availableDepartments,
+                      value: _selectedDepartment,
+                      onChanged: (val) {
+                        setState(() => _selectedDepartment = val);
+                      },
+                    ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Account type',
+                    'Account Type',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -243,6 +456,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // Role selection with info badge
                   CustomDropdown(
                     label: 'ROLE',
                     items: const ['Student', 'Admin'],
@@ -251,6 +465,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       setState(() => _accountType = val ?? 'Student');
                     },
                   ),
+                  if (_accountType == 'Admin')
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.amber, size: 18),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Admin registration requires a verification code.',
+                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 10),
                   // Terms checkbox
                   Row(

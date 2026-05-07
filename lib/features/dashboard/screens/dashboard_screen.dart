@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/cache/user_cache.dart';
 import '../../assignments/models/assignment.dart';
 import '../../assignments/screens/assignment_detail_screen.dart';
 
@@ -26,23 +27,54 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            const Row(
+            // Header with role indicator
+            Row(
               children: [
-                Icon(Icons.menu_book, color: AppColors.primary, size: 20),
-                SizedBox(width: 8),
+                Icon(
+                  UserCache.isAdmin ? Icons.admin_panel_settings : Icons.menu_book,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
                 Text(
-                  'Scholar',
-                  style: TextStyle(
+                  UserCache.isAdmin ? 'Admin Panel' : 'Scholar',
+                  style: const TextStyle(
                     color: AppColors.primary,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                const Spacer(),
+                if (UserCache.isAdmin)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.verified, color: AppColors.primary, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          'ADMIN',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 20),
-            // Progress card
+
+            // Unified Summary Card for both Admin and Student
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -53,9 +85,9 @@ class DashboardScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Weekly Progress',
-                    style: TextStyle(
+                  Text(
+                    UserCache.isAdmin ? 'System Overview' : 'Weekly Progress',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -63,47 +95,52 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'You\'ve completed $completed tasks. Keep up the scholar\'s pace.',
+                    UserCache.isAdmin 
+                        ? 'Managing $total assignments ($inProgress active, $overdue overdue).'
+                        : 'You\'ve completed $completed tasks. Keep up the scholar\'s pace.',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 12,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'SEMESTER GOAL',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 11,
-                          letterSpacing: 0.8,
+                  if (!UserCache.isAdmin) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'SEMESTER GOAL',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 11,
+                            letterSpacing: 0.8,
+                          ),
                         ),
-                      ),
-                      Text(
-                        '$semesterGoal%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
+                        Text(
+                          '$semesterGoal%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: semesterGoal / 100,
-                      backgroundColor: Colors.white.withValues(alpha: 0.3),
-                      valueColor: const AlwaysStoppedAnimation(Colors.white),
-                      minHeight: 8,
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: semesterGoal / 100,
+                        backgroundColor: Colors.white.withValues(alpha: 0.3),
+                        valueColor: const AlwaysStoppedAnimation(Colors.white),
+                        minHeight: 8,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 16),
+
             // Stats grid
             Row(
               children: [
@@ -130,9 +167,9 @@ class DashboardScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             // Upcoming
-            const Text(
-              'Upcoming',
-              style: TextStyle(
+            Text(
+              UserCache.isAdmin ? 'Recent Assignments' : 'Upcoming',
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
@@ -148,7 +185,7 @@ class DashboardScreen extends StatelessWidget {
                       const Icon(Icons.check_circle, color: AppColors.success, size: 48),
                       const SizedBox(height: 12),
                       Text(
-                        'All caught up! 🎉',
+                        UserCache.isAdmin ? 'No pending assignments' : 'All caught up! 🎉',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Colors.grey[700],
@@ -170,6 +207,52 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminStatPill extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _AdminStatPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),

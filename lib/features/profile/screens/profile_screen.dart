@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_colors.dart';
-
 import '../../../core/cache/user_cache.dart';
+import '../../../core/services/user_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -56,12 +56,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              final newName = nameController.text.trim();
+              final newUni = uniController.text.trim();
+              final newFac = facController.text.trim();
+
               if (user != null) {
-                await user.updateDisplayName(nameController.text.trim());
+                await user.updateDisplayName(newName);
                 await user.reload(); 
+
+                // Persist to Firestore
+                await UserService.updateUserProfile(
+                  uid: user.uid,
+                  name: newName,
+                  university: newUni,
+                  faculty: newFac,
+                );
               }
-              UserCache.university = uniController.text.trim();
-              UserCache.faculty = facController.text.trim();
               
               if (dialogContext.mounted) {
                 Navigator.pop(dialogContext);
@@ -85,20 +95,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user != null && user.email != null) {
       try {
         await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Password reset email sent. Check your inbox.')),
           );
         }
       } catch (e) {
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to send reset email.')),
           );
         }
       }
     } else {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No email found to reset password.')),
         );
@@ -130,17 +140,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: AppColors.primaryLight,
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                  // Avatar with role badge
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: UserCache.isAdmin 
+                            ? AppColors.primary 
+                            : AppColors.primaryLight,
+                        child: Text(
+                          initial,
+                          style: const TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
+                      // Role badge
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: UserCache.isAdmin 
+                                ? AppColors.primary 
+                                : AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.card, width: 2),
+                          ),
+                          child: Text(
+                            UserCache.role.displayName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 15),
                   Text(
@@ -208,7 +248,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 30),
                   _buildInfoRow('UNIVERSITY', UserCache.university),
                   _buildInfoRow('FACULTY', UserCache.faculty),
-                  _buildInfoRow('ACADEMIC ROLE', UserCache.role),
+                  _buildInfoRow(
+                    'ACADEMIC ROLE',
+                    '${UserCache.role.icon} ${UserCache.role.displayName}',
+                  ),
                 ],
               ),
             ),
@@ -239,6 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: Icons.logout,
               color: AppColors.error,
               onTap: () async {
+                UserCache.clear();
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
                   Navigator.pushNamedAndRemoveUntil(
