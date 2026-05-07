@@ -10,6 +10,8 @@ class Assignment {
   final String status; // pending, in_progress, completed
   final String priority; // low, medium, high
   final int progress; // 0-100
+  final String? fileAttachmentUrl;
+  final String? fileAttachmentName;
 
   const Assignment({
     required this.id,
@@ -21,6 +23,8 @@ class Assignment {
     this.status = 'pending',
     this.priority = 'medium',
     this.progress = 0,
+    this.fileAttachmentUrl,
+    this.fileAttachmentName,
   });
 
   bool get isOverdue =>
@@ -68,6 +72,8 @@ class Assignment {
       status: data['status'] ?? 'pending',
       priority: data['priority'] ?? 'medium',
       progress: data['progress'] ?? 0,
+      fileAttachmentUrl: data['fileAttachmentUrl'],
+      fileAttachmentName: data['fileAttachmentName'],
     );
   }
 
@@ -80,6 +86,8 @@ class Assignment {
         'status': status,
         'priority': priority,
         'progress': progress,
+        'fileAttachmentUrl': fileAttachmentUrl,
+        'fileAttachmentName': fileAttachmentName,
         'createdAt': FieldValue.serverTimestamp(),
       };
 
