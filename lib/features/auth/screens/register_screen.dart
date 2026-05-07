@@ -259,7 +259,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      print('>>> Starting Auth Creation...');
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -275,15 +274,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
-      print('>>> Auth Success! UID: ${user.uid}');
-      
-      print('>>> Updating display name...');
       await user.updateDisplayName(name);
-      print('>>> Display name updated.');
 
       final fac = _selectedFaculty?.trim();
 
-      print('>>> Saving to Firestore...');
       // Save user data to Firestore
       await UserService.createUserDocument(
         uid: user.uid,
@@ -292,7 +286,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         role: selectedRole,
         faculty: fac,
       );
-      print('>>> Firestore save complete.');
 
       // Update local cache
       UserCache.role = selectedRole;
@@ -300,7 +293,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         UserCache.faculty = fac;
       }
 
-      print('>>> Navigating to home...');
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }

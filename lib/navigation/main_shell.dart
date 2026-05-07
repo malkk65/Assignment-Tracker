@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/constants/app_strings.dart';
-import '../core/cache/user_cache.dart';
 import '../features/dashboard/screens/dashboard_screen.dart';
 import '../features/assignments/screens/assignment_list_screen.dart';
 import '../features/chat/screens/chat_screen.dart';
@@ -105,7 +104,7 @@ class _MainShellState extends State<MainShell> {
                     decoration: BoxDecoration(
                       color: Colors.redAccent,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.background, width: 2),
+                      border: Border.all(color: AppColors.scaffold, width: 2),
                     ),
                   ),
                 ),
