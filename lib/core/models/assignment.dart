@@ -1,5 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme/app_colors.dart';
 
+/// Represents a single assignment/task in the system.
+///
+/// Supports Firestore serialization via [fromFirestore] and [toFirestore].
 class Assignment {
   final String id;
   final String title;
@@ -27,6 +32,8 @@ class Assignment {
     this.fileAttachmentName,
   });
 
+  // ── Computed Properties ──
+
   bool get isOverdue =>
       dueDate.isBefore(DateTime.now()) && status != 'completed';
 
@@ -53,6 +60,48 @@ class Assignment {
     if (diff == 1) return 'Due Tomorrow';
     return 'Due in $diff days';
   }
+
+  /// Returns the color associated with this assignment's priority level.
+  /// Eliminates the duplicated `_priorityColor` getter across 3 files.
+  Color get priorityColor {
+    switch (priority) {
+      case 'high':
+        return AppColors.highPriority;
+      case 'medium':
+        return AppColors.mediumPriority;
+      default:
+        return AppColors.lowPriority;
+    }
+  }
+
+  /// Returns the color for the deadline indicator.
+  Color get deadlineColor {
+    if (isOverdue) return AppColors.urgent;
+    if (isCompleted) return AppColors.success;
+    return AppColors.textSecondary;
+  }
+
+  /// Returns a status-appropriate background/text color pair.
+  ({Color background, Color foreground}) get statusColors {
+    if (isOverdue) {
+      return (
+        background: AppColors.urgent.withValues(alpha: 0.1),
+        foreground: AppColors.urgent,
+      );
+    }
+    if (isCompleted) {
+      return (
+        background: AppColors.success.withValues(alpha: 0.1),
+        foreground: AppColors.success,
+      );
+    }
+    return (
+      background: AppColors.warning.withValues(alpha: 0.1),
+      foreground: AppColors.warning,
+    );
+  }
+
+  // ── Firestore Serialization ──
 
   factory Assignment.fromFirestore(Map<String, dynamic> data, String docId) {
     DateTime parsedDate;
@@ -90,52 +139,4 @@ class Assignment {
         'fileAttachmentName': fileAttachmentName,
         'createdAt': FieldValue.serverTimestamp(),
       };
-
-  /// Sample data for development
-  static List<Assignment> get sampleData => [
-        Assignment(
-          id: '1',
-          title: '3D Character Modeling & Rigging',
-          description: 'Create a complete 3D character model with full rigging.',
-          courseCode: 'DIGITAL ARTS',
-          courseName: 'Digital Arts',
-          dueDate: DateTime.now().add(const Duration(days: 1)),
-          status: 'in_progress',
-          priority: 'high',
-          progress: 60,
-        ),
-        Assignment(
-          id: '2',
-          title: 'Deconstructionism in Literature',
-          description: 'Write a research paper on deconstructionism theory.',
-          courseCode: 'LIT THEORY',
-          courseName: 'Literature Theory',
-          dueDate: DateTime.now().add(const Duration(days: 4)),
-          status: 'in_progress',
-          priority: 'medium',
-          progress: 30,
-        ),
-        Assignment(
-          id: '3',
-          title: 'Infinite Series & Convergence',
-          description: 'Solve problem set on infinite series convergence tests.',
-          courseCode: 'CALCULUS II',
-          courseName: 'Calculus II',
-          dueDate: DateTime.now().subtract(const Duration(days: 2)),
-          status: 'pending',
-          priority: 'high',
-          progress: 10,
-        ),
-        Assignment(
-          id: '4',
-          title: 'Database Normalization Essay',
-          description: 'Create a complete ERD diagram and normalize to 3NF.',
-          courseCode: 'CS101',
-          courseName: 'Intro to Computer Science',
-          dueDate: DateTime.now().subtract(const Duration(days: 5)),
-          status: 'completed',
-          priority: 'medium',
-          progress: 100,
-        ),
-      ];
 }

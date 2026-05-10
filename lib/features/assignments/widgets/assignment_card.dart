@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../models/assignment.dart';
+import '../../../core/models/assignment.dart';
+import '../../../core/widgets/status_badge.dart';
 
 class AssignmentCard extends StatelessWidget {
   final Assignment assignment;
@@ -32,13 +33,13 @@ class AssignmentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon + deadline row
+            // ── Icon + Deadline Row ──
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _priorityColor.withValues(alpha: 0.1),
+                    color: assignment.priorityColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -51,13 +52,13 @@ class AssignmentCard extends StatelessWidget {
                 Icon(
                   Icons.calendar_today_outlined,
                   size: 14,
-                  color: _deadlineColor,
+                  color: assignment.deadlineColor,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   assignment.dueDateLabel,
                   style: TextStyle(
-                    color: _deadlineColor,
+                    color: assignment.deadlineColor,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -65,24 +66,16 @@ class AssignmentCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // Course tag
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                assignment.courseCode,
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+
+            // ── Course Tag ──
+            StatusBadge(
+              label: assignment.courseCode,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              textColor: AppColors.primary,
             ),
             const SizedBox(height: 8),
-            // Title
+
+            // ── Title ──
             Text(
               assignment.title,
               style: const TextStyle(
@@ -91,11 +84,15 @@ class AssignmentCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            // Status + progress
+
+            // ── Status + Progress ──
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildStatusTag(),
+                StatusBadge.fromColors(
+                  label: assignment.statusLabel,
+                  colors: assignment.statusColors,
+                ),
                 Text(
                   '${assignment.progress}%',
                   style: const TextStyle(
@@ -106,7 +103,8 @@ class AssignmentCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // Progress bar
+
+            // ── Progress Bar ──
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -122,56 +120,6 @@ class AssignmentCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildStatusTag() {
-    Color bg;
-    Color text;
-    final label = assignment.statusLabel;
-
-    if (assignment.isOverdue) {
-      bg = AppColors.urgent.withValues(alpha: 0.1);
-      text = AppColors.urgent;
-    } else if (assignment.isCompleted) {
-      bg = AppColors.success.withValues(alpha: 0.1);
-      text = AppColors.success;
-    } else {
-      bg = AppColors.warning.withValues(alpha: 0.1);
-      text = AppColors.warning;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: text,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Color get _priorityColor {
-    switch (assignment.priority) {
-      case 'high':
-        return AppColors.highPriority;
-      case 'medium':
-        return AppColors.mediumPriority;
-      default:
-        return AppColors.lowPriority;
-    }
-  }
-
-  Color get _deadlineColor {
-    if (assignment.isOverdue) return AppColors.urgent;
-    if (assignment.isCompleted) return AppColors.success;
-    return AppColors.textSecondary;
   }
 
   IconData get _courseIcon {

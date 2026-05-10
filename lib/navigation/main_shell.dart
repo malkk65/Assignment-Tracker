@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/constants/app_strings.dart';
+import '../core/widgets/premium_app_bar.dart';
 import '../features/dashboard/screens/dashboard_screen.dart';
 import '../features/assignments/screens/assignment_list_screen.dart';
 import '../features/chat/screens/chat_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
-import '../features/notifications/screens/notifications_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -59,61 +59,32 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leadingWidth: 70,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 20, top: 8, bottom: 8),
-          child: GestureDetector(
-            onTap: () {
-              // Navigate to profile tab
-              setState(() {
-                _currentIndex = 3;
-              });
-            },
-            child: CircleAvatar(
-              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              child: const Icon(Icons.person, color: AppColors.primary),
-            ),
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 28),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const NotificationsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                Positioned(
-                  right: 12,
-                  top: 12,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.scaffold, width: 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      // ── Premium App Bar ──
+      appBar: PremiumAppBar(
+        onAvatarTap: () {
+          // Navigate to profile tab (index 3), same as before
+          setState(() {
+            _currentIndex = 3;
+          });
+        },
       ),
-      body: _pages[_currentIndex],
+      // ── Page Body with fade transition ──
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(_currentIndex),
+          child: _pages[_currentIndex],
+        ),
+      ),
+      // ── Bottom Navigation (unchanged) ──
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.card,
@@ -143,3 +114,4 @@ class _MainShellState extends State<MainShell> {
     );
   }
 }
+

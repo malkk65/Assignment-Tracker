@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../models/assignment.dart';
+import '../../../core/models/assignment.dart';
 import '../widgets/assignment_card.dart';
 import 'assignment_detail_screen.dart';
 import '../../admin/screens/admin_add_assignment_screen.dart';

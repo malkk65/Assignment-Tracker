@@ -7,7 +7,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/cache/user_cache.dart';
 import '../../../core/services/assignment_service.dart';
-import '../models/assignment.dart';
+import '../../../core/models/assignment.dart';
+import '../../../core/widgets/status_badge.dart';
+import '../../admin/screens/admin_add_assignment_screen.dart';
 
 class AssignmentDetailScreen extends StatefulWidget {
   final Assignment assignment;
@@ -24,7 +26,7 @@ class AssignmentDetailScreen extends StatefulWidget {
 class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
   bool _isUploading = false;
 
-  Future<void> _downloadPdf(String url) async {
+  Future<void> _openPdf(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -49,7 +51,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
         final file = File(result.files.single.path!);
         final fileName = result.files.single.name;
         final fileUrl = await AssignmentService.uploadFile(file, 'student_submissions');
-        
+
         final user = FirebaseAuth.instance.currentUser!;
         await AssignmentService.submitStudentAnswer(
           assignmentId: widget.assignment.id,
@@ -71,12 +73,70 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
           );
         }
       } finally {
+        if (mounted) setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  // ── Admin Actions ──
+
+  void _editAssignment() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminAddAssignmentScreen(
+          existingAssignment: widget.assignment,
+        ),
+      ),
+    );
+    // If edit was saved, go back so the list refreshes
+    if (result == true && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  void _deleteAssignment() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Assignment'),
+        content: const Text(
+          'Are you sure you want to delete this assignment? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await AssignmentService.deleteAssignment(widget.assignment.id);
         if (mounted) {
-          setState(() => _isUploading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Assignment deleted.')),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting: $e')),
+          );
         }
       }
     }
   }
+
+  // ── Build ──
 
   @override
   Widget build(BuildContext context) {
@@ -88,10 +148,19 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
         ),
         title: const Text('Assignment Detail'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {},
-          ),
+          // Admin gets edit & delete actions
+          if (UserCache.isAdmin) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+              tooltip: 'Edit Assignment',
+              onPressed: _editAssignment,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppColors.error),
+              tooltip: 'Delete Assignment',
+              onPressed: _deleteAssignment,
+            ),
+          ],
         ],
       ),
       body: SingleChildScrollView(
@@ -104,10 +173,12 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
             _buildProgressSection(),
             if (widget.assignment.fileAttachmentUrl != null) ...[
               const SizedBox(height: 24),
-              _buildResources(),
+              _buildFileAttachment(),
             ],
             const SizedBox(height: 30),
-            UserCache.isAdmin ? _buildAdminSubmissions() : _buildStudentUploadSection(),
+            UserCache.isAdmin
+                ? _buildAdminSubmissions()
+                : _buildStudentUploadSection(),
           ],
         ),
       ),
@@ -120,12 +191,16 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
       children: [
         Row(
           children: [
-            _buildChip(widget.assignment.courseCode, AppColors.primary.withValues(alpha: 0.1), AppColors.primary),
+            StatusBadge(
+              label: widget.assignment.courseCode,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              textColor: AppColors.primary,
+            ),
             const SizedBox(width: 10),
-            _buildChip(
-              '${widget.assignment.priority.toUpperCase()} PRIORITY',
-              _priorityColor.withValues(alpha: 0.1),
-              _priorityColor,
+            StatusBadge(
+              label: '${widget.assignment.priority.toUpperCase()} PRIORITY',
+              backgroundColor: widget.assignment.priorityColor.withValues(alpha: 0.1),
+              textColor: widget.assignment.priorityColor,
             ),
           ],
         ),
@@ -216,30 +291,96 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
     );
   }
 
-  Widget _buildResources() {
-    return GestureDetector(
-      onTap: () => _downloadPdf(widget.assignment.fileAttachmentUrl!),
-      child: Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: AppColors.inputFill,
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.description, color: AppColors.warning),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.assignment.fileAttachmentName ?? 'Attached PDF File',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+  /// Prominent file attachment card with download button.
+  Widget _buildFileAttachment() {
+    final fileName = widget.assignment.fileAttachmentName ?? 'Assignment File.pdf';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.attach_file, color: AppColors.primary, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Assignment File',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // File card
+          InkWell(
+            onTap: () => _openPdf(widget.assignment.fileAttachmentUrl!),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.picture_as_pdf, color: Colors.red, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fileName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Tap to view or download',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.download_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Icon(Icons.download_for_offline_outlined, color: AppColors.primary),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -270,7 +411,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
             height: 55,
             child: ElevatedButton(
               onPressed: _isUploading ? null : _submitAnswer,
-              child: _isUploading 
+              child: _isUploading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -292,7 +433,11 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
       children: [
         const Text(
           'Student Submissions',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
         ),
         const SizedBox(height: 15),
         StreamBuilder<QuerySnapshot>(
@@ -302,33 +447,63 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return Text('Error loading submissions', style: TextStyle(color: AppColors.error));
+              return Text(
+                'Error loading submissions',
+                style: TextStyle(color: AppColors.error),
+              );
             }
 
             final docs = snapshot.data?.docs ?? [];
             if (docs.isEmpty) {
-              return const Text('No submissions yet.', style: TextStyle(color: AppColors.textSecondary));
+              return Container(
+                padding: const EdgeInsets.all(30),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.inbox_outlined, size: 40, color: AppColors.textHint),
+                      SizedBox(height: 8),
+                      Text(
+                        'No submissions yet.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              );
             }
 
             return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: docs.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final data = docs[index].data() as Map<String, dynamic>;
                 return ListTile(
                   tileColor: AppColors.card,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                   leading: const CircleAvatar(
                     backgroundColor: AppColors.primary,
                     child: Icon(Icons.person, color: Colors.white),
                   ),
-                  title: Text(data['studentName'] ?? 'Unknown Student', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(data['fileName'] ?? 'submission.pdf', maxLines: 1, overflow: TextOverflow.ellipsis),
+                  title: Text(
+                    data['studentName'] ?? 'Unknown Student',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    data['fileName'] ?? 'submission.pdf',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   trailing: IconButton(
                     icon: const Icon(Icons.download, color: AppColors.primary),
-                    onPressed: () => _downloadPdf(data['fileUrl']),
+                    onPressed: () => _openPdf(data['fileUrl']),
                   ),
                 );
               },
@@ -337,34 +512,5 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
         ),
       ],
     );
-  }
-
-  Widget _buildChip(String text, Color bg, Color textColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: textColor,
-        ),
-      ),
-    );
-  }
-
-  Color get _priorityColor {
-    switch (widget.assignment.priority) {
-      case 'high':
-        return AppColors.highPriority;
-      case 'medium':
-        return AppColors.mediumPriority;
-      default:
-        return AppColors.lowPriority;
-    }
   }
 }

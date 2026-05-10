@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/cache/user_cache.dart';
-import '../../assignments/models/assignment.dart';
+import '../../../core/models/assignment.dart';
 import '../../assignments/screens/assignment_detail_screen.dart';
 import '../../../core/services/assignment_service.dart';
 
@@ -48,7 +48,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  UserCache.isAdmin ? 'Admin Panel' : 'Scholar',
+                  UserCache.isAdmin ? 'Admin Panel' : 'Student panel',
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontSize: 16,
@@ -319,14 +319,14 @@ class _UpcomingCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: _priorityColor.withValues(alpha: 0.1),
+                    color: assignment.priorityColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     '${assignment.priority.toUpperCase()} PRIORITY',
                     style: TextStyle(
                       fontSize: 10,
-                      color: _priorityColor,
+                      color: assignment.priorityColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -385,14 +385,4 @@ class _UpcomingCard extends StatelessWidget {
     );
   }
 
-  Color get _priorityColor {
-    switch (assignment.priority) {
-      case 'high':
-        return AppColors.highPriority;
-      case 'medium':
-        return AppColors.mediumPriority;
-      default:
-        return AppColors.lowPriority;
-    }
-  }
 }

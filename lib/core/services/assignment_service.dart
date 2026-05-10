@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import '../../features/assignments/models/assignment.dart';
+import '../models/assignment.dart';
 
 class AssignmentService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -10,13 +10,31 @@ class AssignmentService {
   static const String _collectionName = 'assignments';
 
   /// Uploads a file to Firebase Storage and returns the download URL.
+  ///
+  /// Sets the correct content type for PDF files so Firebase Storage
+  /// rules can validate the file type.
   static Future<String> uploadFile(File file, String folderPath) async {
     final fileName = path.basename(file.path);
     final destination = '$folderPath/${DateTime.now().millisecondsSinceEpoch}_$fileName';
-    
-    final ref = _storage.ref(destination);
-    await ref.putFile(file);
-    return await ref.getDownloadURL();
+
+    try {
+      final ref = _storage.ref(destination);
+      final metadata = SettableMetadata(contentType: 'application/pdf');
+
+      await ref.putFile(file, metadata);
+      return await ref.getDownloadURL();
+    } on FirebaseException catch (e) {
+      switch (e.code) {
+        case 'unauthorized':
+        case 'unauthenticated':
+          throw Exception('You must be logged in to upload files.');
+        case 'canceled':
+          throw Exception('Upload was cancelled.');
+        case 'unknown':
+        default:
+          throw Exception('Upload failed: ${e.message}');
+      }
+    }
   }
 
   /// Creates a new assignment in Firestore.
