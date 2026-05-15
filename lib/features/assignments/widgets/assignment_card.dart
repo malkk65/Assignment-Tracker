@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/models/assignment.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/cache/user_cache.dart';
+import '../../../core/services/assignment_service.dart';
 import '../../../core/widgets/status_badge.dart';
 
 class AssignmentCard extends StatelessWidget {
@@ -86,39 +89,78 @@ class AssignmentCard extends StatelessWidget {
             const SizedBox(height: 16),
 
             // ── Status + Progress ──
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                StatusBadge.fromColors(
-                  label: assignment.statusLabel,
-                  colors: assignment.statusColors,
+            if (UserCache.isAdmin || FirebaseAuth.instance.currentUser == null)
+              _buildProgress(
+                assignment.statusLabel,
+                assignment.statusColors,
+                assignment.progress,
+                assignment.isCompleted,
+              )
+            else
+              StreamBuilder<bool>(
+                stream: AssignmentService.hasStudentSubmittedStream(
+                  assignment.id,
+                  FirebaseAuth.instance.currentUser!.uid,
                 ),
-                Text(
-                  '${assignment.progress}%',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+                builder: (context, snapshot) {
+                  final hasSubmitted = snapshot.data ?? false;
+                  final progress = hasSubmitted ? 100 : assignment.progress;
+                  final isCompleted = hasSubmitted || assignment.isCompleted;
+                  final statusLabel = hasSubmitted ? 'COMPLETED' : assignment.statusLabel;
+                  final statusColors = hasSubmitted
+                      ? (
+                          background: AppColors.success.withValues(alpha: 0.1),
+                          foreground: AppColors.success,
+                        )
+                      : assignment.statusColors;
 
-            // ── Progress Bar ──
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: assignment.progress / 100,
-                backgroundColor: AppColors.divider,
-                valueColor: AlwaysStoppedAnimation(
-                  assignment.isCompleted ? AppColors.success : AppColors.primary,
-                ),
-                minHeight: 6,
+                  return _buildProgress(statusLabel, statusColors, progress, isCompleted);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgress(
+    String statusLabel,
+    ({Color background, Color foreground}) statusColors,
+    int progress,
+    bool isCompleted,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            StatusBadge.fromColors(
+              label: statusLabel,
+              colors: statusColors,
+            ),
+            Text(
+              '$progress%',
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress / 100,
+            backgroundColor: AppColors.divider,
+            valueColor: AlwaysStoppedAnimation(
+              isCompleted ? AppColors.success : AppColors.primary,
+            ),
+            minHeight: 6,
+          ),
+        ),
+      ],
     );
   }
 

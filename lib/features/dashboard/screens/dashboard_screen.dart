@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/cache/user_cache.dart';
 import '../../../core/models/assignment.dart';
 import '../../assignments/screens/assignment_detail_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/assignment_service.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -21,12 +23,6 @@ class DashboardScreen extends StatelessWidget {
         }
 
         final assignments = snapshot.data ?? [];
-        final total = assignments.length;
-        final completed = assignments.where((a) => a.isCompleted).length;
-        final inProgress = assignments.where((a) => a.status == 'in_progress').length;
-        final overdue = assignments.where((a) => a.isOverdue).length;
-        final semesterGoal = total > 0 ? (completed / total * 100).round() : 0;
-
         final upcoming = assignments
             .where((a) => !a.isCompleted && !a.isOverdue)
             .toList()
@@ -85,98 +81,14 @@ class DashboardScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Unified Summary Card for both Admin and Student
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    UserCache.isAdmin ? 'System Overview' : 'Weekly Progress',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    UserCache.isAdmin 
-                        ? 'Managing $total assignments ($inProgress active, $overdue overdue).'
-                        : 'You\'ve completed $completed tasks. Keep up the scholar\'s pace.',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (!UserCache.isAdmin) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'SEMESTER GOAL',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 11,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        Text(
-                          '$semesterGoal%',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: semesterGoal / 100,
-                        backgroundColor: Colors.white.withValues(alpha: 0.3),
-                        valueColor: const AlwaysStoppedAnimation(Colors.white),
-                        minHeight: 8,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+            // ── Admin Stats ──
+            if (UserCache.isAdmin)
+              _AdminStats(assignments: assignments),
 
-            // Stats grid
-            Row(
-              children: [
-                _StatCard(label: 'TOTAL TASKS', value: '$total'),
-                const SizedBox(width: 12),
-                _StatCard(label: 'COMPLETED', value: '$completed'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _StatCard(
-                  label: 'IN PROGRESS',
-                  value: '$inProgress',
-                  accent: AppColors.primaryLight,
-                ),
-                const SizedBox(width: 12),
-                _StatCard(
-                  label: 'OVERDUE',
-                  value: '$overdue',
-                  accent: overdue > 0 ? AppColors.error : null,
-                ),
-              ],
-            ),
+            // ── Course Breakdown ──
+            _CourseBreakdown(assignments: assignments),
             const SizedBox(height: 24),
+
             // Upcoming
             Text(
               UserCache.isAdmin ? 'Recent Assignments' : 'Upcoming',
@@ -192,6 +104,7 @@ class DashboardScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(32),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.check_circle, color: AppColors.success, size: 48),
                       const SizedBox(height: 12),
@@ -223,54 +136,6 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
       },
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? accent;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.8,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: accent ?? AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -350,39 +215,414 @@ class _UpcomingCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  assignment.statusLabel,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+            const SizedBox(height: 12),
+            if (UserCache.isAdmin || FirebaseAuth.instance.currentUser == null)
+              _buildProgress(
+                assignment.statusLabel,
+                assignment.progress,
+                assignment.isCompleted,
+              )
+            else
+              StreamBuilder<bool>(
+                stream: AssignmentService.hasStudentSubmittedStream(
+                  assignment.id,
+                  FirebaseAuth.instance.currentUser!.uid,
                 ),
-                Text(
-                  '${assignment.progress}%',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: assignment.progress / 100,
-                backgroundColor: AppColors.divider,
-                valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-                minHeight: 6,
+                builder: (context, snapshot) {
+                  final hasSubmitted = snapshot.data ?? false;
+                  final progress = hasSubmitted ? 100 : assignment.progress;
+                  final isCompleted = hasSubmitted || assignment.isCompleted;
+                  final statusLabel = hasSubmitted ? 'COMPLETED' : assignment.statusLabel;
+
+                  return _buildProgress(statusLabel, progress, isCompleted);
+                },
               ),
-            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildProgress(String statusLabel, int progress, bool isCompleted) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              statusLabel,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            Text(
+              '$progress%',
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress / 100,
+            backgroundColor: AppColors.divider,
+            valueColor: AlwaysStoppedAnimation(
+              isCompleted ? AppColors.success : AppColors.primary,
+            ),
+            minHeight: 6,
+          ),
+        ),
+      ],
+    );
+  }
+
+}
+
+class _AdminStats extends StatelessWidget {
+  final List<Assignment> assignments;
+
+  const _AdminStats({required this.assignments});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<AggregateQuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'student')
+          .count()
+          .get(),
+      builder: (context, snapshot) {
+        final studentCount = snapshot.data?.count ?? 0;
+        final totalAssignments = assignments.length;
+        final overdue = assignments.where((a) => a.isOverdue).length;
+        final courses = assignments
+            .map((a) => a.courseName.isNotEmpty ? a.courseName : a.courseCode)
+            .toSet()
+            .length;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      title: 'Total Students',
+                      value: studentCount.toString(),
+                      icon: Icons.people_rounded,
+                      color: const Color(0xFF6366F1),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatCard(
+                      title: 'Assignments',
+                      value: totalAssignments.toString(),
+                      icon: Icons.assignment_rounded,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      title: 'Overdue',
+                      value: overdue.toString(),
+                      icon: Icons.warning_amber_rounded,
+                      color: AppColors.error,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatCard(
+                      title: 'Courses',
+                      value: courses.toString(),
+                      icon: Icons.menu_book_rounded,
+                      color: const Color(0xFFD97706),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CourseBreakdown extends StatelessWidget {
+  final List<Assignment> assignments;
+
+  const _CourseBreakdown({required this.assignments});
+
+  static const List<Color> _courseColors = [
+    Color(0xFFE8D5C4),
+    Color(0xFFFFE0CC),
+    Color(0xFFD4EDDA),
+    Color(0xFFD6E9F8),
+    Color(0xFFF3E5F5),
+    Color(0xFFFFF9C4),
+  ];
+
+  static const List<IconData> _courseIcons = [
+    Icons.architecture,
+    Icons.menu_book,
+    Icons.functions,
+    Icons.science,
+    Icons.computer,
+    Icons.palette,
+  ];
+
+  static const List<Color> _courseIconColors = [
+    Color(0xFFC9784D),
+    Color(0xFFD97706),
+    Color(0xFF289898),
+    Color(0xFF6366F1),
+    Color(0xFF059669),
+    Color(0xFFDB2777),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (assignments.isEmpty) return const SizedBox.shrink();
+
+    final Map<String, List<Assignment>> courseMap = {};
+    for (final a in assignments) {
+      final key = a.courseName.isNotEmpty ? a.courseName : a.courseCode;
+      courseMap.putIfAbsent(key, () => []).add(a);
+    }
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Course Breakdown',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ...courseMap.entries.toList().asMap().entries.map((entry) {
+            final idx = entry.key;
+            final courseName = entry.value.key;
+            final courseAssignments = entry.value.value;
+            final total = courseAssignments.length;
+            final bgColor = _courseColors[idx % _courseColors.length];
+            final iconData = _courseIcons[idx % _courseIcons.length];
+            final iconColor = _courseIconColors[idx % _courseIconColors.length];
+
+            if (UserCache.isAdmin || uid == null) {
+              final completed = courseAssignments.where((a) => a.isCompleted).length;
+              return _CourseRow(
+                courseName: courseName,
+                completed: completed,
+                total: total,
+                bgColor: bgColor,
+                iconData: iconData,
+                iconColor: iconColor,
+              );
+            } else {
+              return FutureBuilder<int>(
+                future: _countStudentCompletedInCourse(courseAssignments, uid),
+                builder: (context, snap) {
+                  final completed = snap.data ?? 0;
+                  return _CourseRow(
+                    courseName: courseName,
+                    completed: completed,
+                    total: total,
+                    bgColor: bgColor,
+                    iconData: iconData,
+                    iconColor: iconColor,
+                  );
+                },
+              );
+            }
+          }),
+        ],
+      ),
+    );
+  }
+
+  Future<int> _countStudentCompletedInCourse(
+      List<Assignment> courseAssignments, String uid) async {
+    int count = 0;
+    for (final a in courseAssignments) {
+      final doc = await FirebaseFirestore.instance
+          .collection('assignments')
+          .doc(a.id)
+          .collection('submissions')
+          .doc(uid)
+          .get();
+      if (doc.exists) count++;
+    }
+    return count;
+  }
+}
+
+class _CourseRow extends StatelessWidget {
+  final String courseName;
+  final int completed;
+  final int total;
+  final Color bgColor;
+  final IconData iconData;
+  final Color iconColor;
+
+  const _CourseRow({
+    required this.courseName,
+    required this.completed,
+    required this.total,
+    required this.bgColor,
+    required this.iconData,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = total > 0 ? completed / total : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(iconData, color: iconColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        courseName,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '$completed/$total',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: AppColors.divider,
+                    valueColor: AlwaysStoppedAnimation(iconColor),
+                    minHeight: 6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

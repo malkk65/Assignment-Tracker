@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-/// A two-line label/value pair for displaying profile or detail info.
-///
-/// Shows a small uppercase label above the value text.
 class InfoRow extends StatelessWidget {
   final String label;
   final String value;

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/cache/user_cache.dart';
-import '../../../core/services/user_service.dart';
 import '../../../core/widgets/action_tile.dart';
 import '../../../core/widgets/info_row.dart';
-import '../../../core/widgets/stat_card.dart';
+import '../../../core/widgets/custom_dialog.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -15,101 +15,15 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // ── Helpers ──
-
-  String _getFallbackName(String? email) {
-    if (email == null || email.isEmpty) return 'Student';
-    return email.split('@')[0];
-  }
-
-  String get _userName {
-    final user = FirebaseAuth.instance.currentUser;
-    final name = user?.displayName;
-    return (name != null && name.isNotEmpty) ? name : _getFallbackName(user?.email);
-  }
-
-  // ── Actions ──
-
-  void _showEditProfileDialog() {
-    final user = FirebaseAuth.instance.currentUser;
-    final nameController = TextEditingController(text: _userName);
-    final uniController = TextEditingController(text: UserCache.university);
-    final facController = TextEditingController(text: UserCache.faculty);
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit Profile'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: uniController,
-                decoration: const InputDecoration(labelText: 'University'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: facController,
-                decoration: const InputDecoration(labelText: 'Faculty'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (user == null) return;
-
-              await user.updateDisplayName(nameController.text.trim());
-              await user.reload();
-
-              await UserService.updateUserProfile(
-                uid: user.uid,
-                name: nameController.text.trim(),
-                university: uniController.text.trim(),
-                faculty: facController.text.trim(),
-              );
-
-              if (dialogContext.mounted) Navigator.pop(dialogContext);
-              if (mounted) {
-                setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile updated successfully!')),
-                );
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _resetPassword() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user?.email == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No email found to reset password.')),
-        );
-      }
-      return;
-    }
+    if (user == null || user.email == null) return;
+
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: user!.email!);
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password reset email sent.')),
+          const SnackBar(content: Text('Password reset email sent!')),
         );
       }
     } catch (_) {
@@ -122,6 +36,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
+    final bool confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => CustomDialog(
+            title: 'Sign Out?',
+            message: 'Are you sure you want to log out? You will need to sign in again to access your assignments.',
+            icon: Icons.logout_rounded,
+            iconColor: AppColors.error,
+            primaryButtonText: 'Logout',
+            onPrimaryPressed: () {},
+          ),
+        ) ??
+        false;
+
+    if (!confirm) return;
+
     UserCache.clear();
     await FirebaseAuth.instance.signOut();
     if (mounted) {
@@ -129,119 +58,121 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ── Build ──
-
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final userName = _userName;
-    final userEmail = user?.email ?? 'student@university.edu';
-    final initial = userName.isNotEmpty ? userName[0].toUpperCase() : 'S';
-    final roleColor = UserCache.isAdmin ? AppColors.primary : AppColors.primaryLight;
+    final String userName = user?.displayName ?? 'Student';
+    final String userEmail = user?.email ?? 'student@university.edu';
+    final String initial = userName.isNotEmpty ? userName[0].toUpperCase() : 'S';
+    final Color roleColor = UserCache.isAdmin ? AppColors.primary : AppColors.primaryLight;
 
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        child: Column(
-          children: [
-            // ── Profile Card ──
-            _ProfileCard(
-              initial: initial,
-              userName: userName,
-              userEmail: userEmail,
-              roleColor: roleColor,
-              onEditTap: _showEditProfileDialog,
-            ),
-            const SizedBox(height: 20),
+      child: RefreshIndicator(
+        onRefresh: () async {
+          setState(() {});
+          await Future.delayed(const Duration(milliseconds: 500));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            children: [
+              // ── Profile Card ──
+              _ProfileCard(
+                initial: initial,
+                userName: userName,
+                userEmail: userEmail,
+                roleColor: roleColor,
+              ),
+              const SizedBox(height: 30),
 
-            // ── Stats Grid ──
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              mainAxisSpacing: 15,
-              crossAxisSpacing: 15,
-              childAspectRatio: 1.5,
-              children: const [
-                StatCard(label: 'TOTAL TASKS', value: '12'),
-                StatCard(label: 'COMPLETED', value: '8'),
-                StatCard(label: 'IN PROGRESS', value: '3', valueColor: AppColors.textSecondary),
-                StatCard(label: 'OVERDUE', value: '1', valueColor: AppColors.error),
-              ],
-            ),
-            const SizedBox(height: 20),
+              // ── Academic Info ──
+              _AcademicInfoCard(),
+              const SizedBox(height: 30),
 
-            // ── Academic Info ──
-            _AcademicInfoCard(),
-            const SizedBox(height: 20),
-
-            // ── Actions ──
-            ActionTile(
-              title: 'Change Password',
-              subtitle: 'Send a reset link to your email',
-              icon: Icons.lock_reset,
-              onTap: _resetPassword,
-            ),
-            const SizedBox(height: 15),
-            ActionTile(
-              title: 'Account Settings',
-              subtitle: 'Update your workspace preferences',
-              icon: Icons.settings_applications,
-              onTap: () => Navigator.pushNamed(context, '/settings'),
-            ),
-            const SizedBox(height: 15),
-            ActionTile(
-              title: 'Logout',
-              subtitle: 'Safely exit your current session',
-              icon: Icons.logout,
-              color: AppColors.error,
-              onTap: _logout,
-            ),
-          ],
+              // ── Quick Actions ──
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Account Settings',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 15),
+              ActionTile(
+                icon: Icons.lock_reset,
+                title: 'Reset Password',
+                subtitle: 'Get a recovery link in your email',
+                onTap: _resetPassword,
+              ),
+              ActionTile(
+                icon: Icons.logout,
+                title: 'Logout',
+                subtitle: 'Sign out of your account',
+                color: AppColors.error,
+                onTap: _logout,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ── Private Sub-Widgets ───────────────────────────────────────────────────────
-
 class _ProfileCard extends StatelessWidget {
   final String initial;
   final String userName;
   final String userEmail;
   final Color roleColor;
-  final VoidCallback onEditTap;
 
   const _ProfileCard({
     required this.initial,
     required this.userName,
     required this.userEmail,
     required this.roleColor,
-    required this.onEditTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Stack(
             children: [
-              CircleAvatar(
-                radius: 50,
-                backgroundColor: roleColor,
-                child: Text(
-                  initial,
-                  style: const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -270,21 +201,15 @@ class _ProfileCard extends StatelessWidget {
           const SizedBox(height: 15),
           Text(
             userName,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           Text(
             userEmail,
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: onEditTap,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit Profile'),
-            ),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
           ),
         ],
       ),

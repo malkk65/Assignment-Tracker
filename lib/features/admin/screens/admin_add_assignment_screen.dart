@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/models/assignment.dart';
 import '../../../core/services/assignment_service.dart';
+import '../../../core/services/notification_service.dart';
 
 /// Screen for both creating and editing assignments.
 ///
@@ -127,6 +128,12 @@ class _AdminAddAssignmentScreenState extends State<AdminAddAssignmentScreen> {
         await AssignmentService.updateAssignment(assignment);
       } else {
         await AssignmentService.createAssignment(assignment);
+        // Notify students about the new assignment
+        await NotificationService.createNotification(
+          title: 'New Assignment',
+          message: 'A new assignment "${assignment.title}" was added for ${assignment.courseName.isNotEmpty ? assignment.courseName : assignment.courseCode}.',
+          type: 'assignment',
+        );
       }
 
       if (mounted) {
@@ -141,8 +148,14 @@ class _AdminAddAssignmentScreenState extends State<AdminAddAssignmentScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final message = e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text(message),
+            backgroundColor: const Color(0xFFD32F2F),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } finally {

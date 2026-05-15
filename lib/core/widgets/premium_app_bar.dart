@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_colors.dart';
 import '../cache/user_cache.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
+import '../services/notification_service.dart';
 
 /// A premium, responsive app bar widget inspired by modern SaaS dashboards.
 ///
@@ -199,6 +200,8 @@ class _NotificationButtonState extends State<_NotificationButton>
 
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -261,34 +264,53 @@ class _NotificationButtonState extends State<_NotificationButton>
                   size: 22,
                 ),
               ),
-              // Animated notification dot
-              Positioned(
-                right: 9,
-                top: 9,
-                child: ScaleTransition(
-                  scale: _pulseAnim,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF6B6B), Color(0xFFEE5A24)],
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.card,
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFF6B6B).withValues(alpha: 0.4),
-                          blurRadius: 4,
+              // Real-time unread badge
+              if (userId.isNotEmpty)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: StreamBuilder<int>(
+                    stream: NotificationService.getUnreadCountStream(userId),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data ?? 0;
+                      if (count == 0) return const SizedBox.shrink();
+                      return ScaleTransition(
+                        scale: _pulseAnim,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF6B6B), Color(0xFFEE5A24)],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppColors.card,
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF6B6B).withValues(alpha: 0.4),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              count > 9 ? '9+' : '$count',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                height: 1,
+                              ),
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
-              ),
             ],
           ),
         ),

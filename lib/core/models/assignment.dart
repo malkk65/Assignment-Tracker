@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 
-/// Represents a single assignment/task in the system.
-///
-/// Supports Firestore serialization via [fromFirestore] and [toFirestore].
+
 class Assignment {
   final String id;
   final String title;

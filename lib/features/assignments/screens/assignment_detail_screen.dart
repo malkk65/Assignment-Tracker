@@ -7,8 +7,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/cache/user_cache.dart';
 import '../../../core/services/assignment_service.dart';
+import '../../../core/services/storage_service.dart';
 import '../../../core/models/assignment.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../core/widgets/custom_dialog.dart';
 import '../../admin/screens/admin_add_assignment_screen.dart';
 
 class AssignmentDetailScreen extends StatefulWidget {
@@ -28,9 +30,9 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
 
   Future<void> _openPdf(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not open the file')),
@@ -68,8 +70,15 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
         }
       } catch (e) {
         if (mounted) {
+          // Strip the "Exception: " prefix for a cleaner user message.
+          final message = e.toString().replaceFirst('Exception: ', '');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error uploading answer: $e')),
+            SnackBar(
+              content: Text(message),
+              backgroundColor: const Color(0xFFD32F2F),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 5),
+            ),
           );
         }
       } finally {
@@ -98,22 +107,13 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
   void _deleteAssignment() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Assignment'),
-        content: const Text(
-          'Are you sure you want to delete this assignment? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
+      builder: (ctx) => CustomDialog(
+        title: 'Delete Assignment',
+        message: 'Are you sure you want to delete this assignment? This action cannot be undone.',
+        icon: Icons.delete_outline,
+        iconColor: AppColors.error,
+        primaryButtonText: 'Delete',
+        onPrimaryPressed: () {},
       ),
     );
 
@@ -178,11 +178,113 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
             const SizedBox(height: 30),
             UserCache.isAdmin
                 ? _buildAdminSubmissions()
-                : _buildStudentUploadSection(),
+                : _buildStudentStatusSection(),
           ],
         ),
       ),
     );
+  }
+
+  /// شاشة تظهر حالة تسليم الطالب (هل سلم أم لا)
+  Widget _buildStudentStatusSection() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('assignments')
+          .doc(widget.assignment.id)
+          .collection('submissions')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.check_circle_outline, size: 50, color: AppColors.success),
+                const SizedBox(height: 10),
+                const Text(
+                  'Assignment Submitted!',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.success),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'File: ${data['fileName']}',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _openPdf(data['fileUrl']),
+                      icon: const Icon(Icons.remove_red_eye_outlined),
+                      label: const Text('View'),
+                    ),
+                    const SizedBox(width: 10),
+                    TextButton.icon(
+                      onPressed: () => _unsubmitAnswer(data['fileUrl']),
+                      icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                      label: const Text('Unsubmit', style: TextStyle(color: AppColors.error)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        return _buildStudentUploadSection();
+      },
+    );
+  }
+
+  Future<void> _unsubmitAnswer(String fileUrl) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => CustomDialog(
+        title: 'Unsubmit Assignment?',
+        message: 'This will remove your submission. You can upload a new file after unsubmitting.',
+        icon: Icons.assignment_return_outlined,
+        iconColor: AppColors.error,
+        primaryButtonText: 'Unsubmit',
+        onPrimaryPressed: () {},
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isUploading = true);
+      try {
+        await AssignmentService.deleteSubmission(
+          widget.assignment.id,
+          FirebaseAuth.instance.currentUser!.uid,
+        );
+        await StorageService.deleteFile(fileUrl);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Submission removed.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isUploading = false);
+      }
+    }
   }
 
   Widget _buildHeader() {
@@ -463,6 +565,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
                 ),
                 child: const Center(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.inbox_outlined, size: 40, color: AppColors.textHint),
                       SizedBox(height: 8),

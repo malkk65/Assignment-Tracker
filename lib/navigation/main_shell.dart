@@ -4,7 +4,7 @@ import '../core/constants/app_strings.dart';
 import '../core/widgets/premium_app_bar.dart';
 import '../features/dashboard/screens/dashboard_screen.dart';
 import '../features/assignments/screens/assignment_list_screen.dart';
-import '../features/chat/screens/chat_screen.dart';
+import '../features/chat/screens/chat_list_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -21,7 +21,7 @@ class _MainShellState extends State<MainShell> {
     return const [
       DashboardScreen(),
       AssignmentListScreen(),
-      ChatScreen(),
+      ChatListScreen(),
       ProfileScreen(),
     ];
   }
@@ -59,10 +59,10 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
-      // ── Premium App Bar ──
+      // App Bar
       appBar: PremiumAppBar(
         onAvatarTap: () {
-          // Navigate to profile tab (index 3), same as before
+          // Navigate to profile tab (index 3)
           setState(() {
             _currentIndex = 3;
           });
@@ -84,7 +84,7 @@ class _MainShellState extends State<MainShell> {
           child: _pages[_currentIndex],
         ),
       ),
-      // ── Bottom Navigation (unchanged) ──
+      // Navigation
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.card,
@@ -114,4 +114,3 @@ class _MainShellState extends State<MainShell> {
     );
   }
 }
-
