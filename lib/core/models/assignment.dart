@@ -137,4 +137,32 @@ class Assignment {
         'fileAttachmentName': fileAttachmentName,
         'createdAt': FieldValue.serverTimestamp(),
       };
+
+  Assignment copyWith({
+    String? id,
+    String? title,
+    String? description,
+    String? courseCode,
+    String? courseName,
+    DateTime? dueDate,
+    String? status,
+    String? priority,
+    int? progress,
+    String? fileAttachmentUrl,
+    String? fileAttachmentName,
+  }) {
+    return Assignment(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      courseCode: courseCode ?? this.courseCode,
+      courseName: courseName ?? this.courseName,
+      dueDate: dueDate ?? this.dueDate,
+      status: status ?? this.status,
+      priority: priority ?? this.priority,
+      progress: progress ?? this.progress,
+      fileAttachmentUrl: fileAttachmentUrl ?? this.fileAttachmentUrl,
+      fileAttachmentName: fileAttachmentName ?? this.fileAttachmentName,
+    );
+  }
 }

@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/assignment.dart';
+import '../cache/user_cache.dart';
 import 'storage_service.dart';
 
 class AssignmentService {
@@ -31,15 +33,39 @@ class AssignmentService {
   }
 
   /// Returns a realtime stream of all assignments from Firestore.
+  /// Automatically marks assignments as 'completed' for students if they have submitted them.
   static Stream<List<Assignment>> getAssignmentsStream() {
     return _firestore
         .collection(_collectionName)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return Assignment.fromFirestore(doc.data(), doc.id);
-      }).toList();
+        .asyncMap((snapshot) async {
+      
+      final isAdmin = UserCache.isAdmin;
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+
+      List<Assignment> assignments = [];
+      for (var doc in snapshot.docs) {
+        var assignment = Assignment.fromFirestore(doc.data(), doc.id);
+
+        if (!isAdmin && uid != null && !assignment.isCompleted) {
+          final subDoc = await _firestore
+              .collection(_collectionName)
+              .doc(doc.id)
+              .collection('submissions')
+              .doc(uid)
+              .get();
+              
+          if (subDoc.exists) {
+            assignment = assignment.copyWith(
+              status: 'completed',
+              progress: 100,
+            );
+          }
+        }
+        assignments.add(assignment);
+      }
+      return assignments;
     });
   }
 

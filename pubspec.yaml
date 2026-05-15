@@ -33,7 +33,6 @@ dependencies:
   firebase_core: ^3.2.0
   firebase_auth: ^5.0.0
   cloud_firestore: ^5.6.9
-  firebase_storage: ^12.4.10
   supabase_flutter: ^2.9.0
   file_picker: ^11.0.2
   url_launcher: ^6.3.2

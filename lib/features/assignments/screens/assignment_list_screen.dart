@@ -61,10 +61,12 @@ class _AssignmentListScreenState extends State<AssignmentListScreen> {
           ),
         ),
         // Filter chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            physics: const BouncingScrollPhysics(),
             children: ['All', 'Pending', 'In Progress', 'Completed', 'Overdue']
                 .map((f) => Padding(
                       padding: const EdgeInsets.only(right: 8.0),
