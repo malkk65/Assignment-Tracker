@@ -99,7 +99,7 @@ class Assignment {
     );
   }
 
-  // ── Firestore Serialization ──
+  //Firestore Serialization
 
   factory Assignment.fromFirestore(Map<String, dynamic> data, String docId) {
     DateTime parsedDate;

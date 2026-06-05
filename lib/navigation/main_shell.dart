@@ -6,6 +6,7 @@ import '../features/dashboard/screens/dashboard_screen.dart';
 import '../features/assignments/screens/assignment_list_screen.dart';
 import '../features/chat/screens/chat_list_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
+import '../core/widgets/floating_notification_banner.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -58,7 +59,8 @@ class _MainShellState extends State<MainShell> {
       _currentIndex = 0;
     }
 
-    return Scaffold(
+    return FloatingNotificationManager(
+      child: Scaffold(
       // App Bar
       appBar: PremiumAppBar(
         onAvatarTap: () {
@@ -110,6 +112,7 @@ class _MainShellState extends State<MainShell> {
             destinations: _destinations,
           ),
         ),
+      ),
       ),
     );
   }
